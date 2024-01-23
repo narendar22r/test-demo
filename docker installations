@@ -1,0 +1,50 @@
+Skip to end of metadata
+Created by Unknown User (e5584203), last modified on Sep 07, 2023
+Go to start of metadata
+We are using docker host connection in the engineering project to build AR-Windows container below process will explain how to install docker in windows , how to create docker host connection and link for AR-windows container.
+
+Index:
+Certificate creation document.
+docker installation and host connection.
+AR windows container document link.
+Certificate creation document:
+Please download below document which will explain how to create a certificate and changes for the windows.
+
+Create certificate linux and windows.docx
+
+Currently we are using "vwmazinvtrkqsw1.fisdev.local" as a windows docker host and we have certificates present in the "C:\ProgramData\docker\certs.d" folders.
+
+Docker Installation on windows:
+To install docker in windows machine in FIS we need to install them from static binary {Not recommended and need to check if we have any better way but as of now our need is to build docker image and then it will get deploy on AKS not in docker swarm we can use this method}
+Refer document : https://docs.docker.com/engine/install/binaries/
+Below are the commands to install it for windows.
+Download latest binary build from link:
+https://download.docker.com/win/static/stable/x86_64/
+Unzip the zip file using command: Expand-Archive /path/to/<FILE>.zip -DestinationPath $Env:ProgramFiles
+Use PowerShell to do all command operations.
+Above command will extract files in Program Files
+Register the service:  &$Env:ProgramFiles\Docker\dockerd --register-service
+Start-Service docker
+Above command will register the service and it will start the docker engine you can see it in service manager of windows.
+You need to check if demon.json file is present or not at location. C:\ProgramData\docker\config if not you can create one.
+Here i am attaching current demon. Son file which is present in current windows host
+daemon.json File.
+Then we need to create a certificate authority follow below steps:
+Go into the folder: C:\ProgramData\docker\certs.d
+Make sure the correct path is updated in the demon file for certs.
+Before updating json file stop docker service and when json file will be ready start it.
+After that you need to go to azure devops service connection and create docker host connection and use it in the builds:
+
+Here is the link for azure Dev Ops host connection which AR build is using now:
+
+https://azdo.investran.fisglobal.com/FIS/Engineering/_settings/adminservices?resourceId=bf05d6ed-6170-492d-a61d-905ae40c71eb
+
+The AR Build in which we are using above connection in build image step:
+
+https://azdo.investran.fisglobal.com/FIS/Engineering/_build/results?buildId=437113&view=results
+
+
+
+AR Windows container document link:
+https://wiki.fnis.com/display/itrn/Allocation+Rule+Service+-+Docker+Configuration+on+Windows
+
