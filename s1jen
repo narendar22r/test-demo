@@ -1,0 +1,151 @@
+@Library('cm-cicd-pipeline-library@profilewebPipeline-blackduck') _
+
+import java.time.*
+
+if ("${env.JOB_NAME}".contains("Release")){
+	
+	properties([disableConcurrentBuilds(),
+	buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '15')), 
+	parameters([booleanParam(defaultValue: false, description: 'Run Release build', name: 'Release')])])
+}
+else {
+    properties([disableConcurrentBuilds(),buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '15'))])
+}
+
+timestamps {
+try {
+node("PRFTLR") {
+        		
+		stage("Checkout"){
+			cleanWs()
+			checkout scm
+		}
+		if ("${env.JOB_NAME}".contains("Veracode")) {
+			
+			stage ("Veracode"){		
+					
+				buildWorkspace="F:/jenkins_workspace/workspace/67_ProfileTeller-Veracode_master"
+				
+				withCredentials([usernamePassword(credentialsId: "cm-credentials-id", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+					withCredentials([usernamePassword(credentialsId: "veracode-scan-upload-id", usernameVariable: 'VID', passwordVariable: 'VKEY')]){
+						bat """		
+														
+							set JAVA_HOME=F:\\Java\\jdk1.8.0_231-32bit
+							set path=%JAVA_HOME%\\bin;%PATH%
+
+							set ANT_HOME=F:\\ant\\apache-ant-1.7.1
+							set path=%ANT_HOME%\\bin;%PATH%
+
+							set MAVEN_HOME=F:\\Maven-Azure
+							set path=%MAVEN_HOME%\\bin;%PATH%
+							java -version && ant -version && mvn -version && git --version && cd build.jenkins && ant -f bamboo.xml all.veracode -Dbuilduser=%USERNAME% -Dbuildpassword=%PASSWORD% -Dproxy.user=%USERNAME% -Dproxy.password=%PASSWORD% -Dnonproxyhosts=artifactory.fis.dev -DVCuser=${VID} -DVCpassword=${VKEY} -Dbuild.home=${buildWorkspace} -Djavac.debug=true
+						
+							"""
+					}
+				}
+		
+			}
+		
+		}
+        else if ("${env.JOB_NAME}".contains("Blackduck")){
+            def dt = new Date()
+			def props = readProperties  file: "build.jenkins/build.properties"
+          
+            env.targetVersion=props['targetVersion']
+          
+           blackduckScan(
+              artifactRepo: props['azureArtifactory.snapshot.repository'],
+              projectName: props['maven.GroupId'],
+              targetSourcePath: props['targetSourcePath'],
+              targetSource: props['targetSource'],
+              blackduckAppName: props['blackDuckAppName'],
+              scanVersion: dt.format("dd-MM-yyyy"),
+              scanPhase: 'DEVELOPMENT'
+            )
+        }/* end of ondemand Blackduck */
+		else if ("${env.JOB_NAME}".contains("Release")) {
+			stage ("Release-Build"){
+				
+				if (params.Release){
+					
+					buildWorkspace="F:/jenkins_workspace/workspace/767_ProfileTeller-Release_master"
+					releaseVersion="7.6.7.${env.BUILD_NUMBER}"
+					
+					withCredentials([usernamePassword(credentialsId: "cm-credentials-id", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+						bat """		
+							echo "Release version is set to ${releaseVersion}" 
+							
+							set JAVA_HOME=F:\\Java\\jdk1.8.0_231-32bit
+							set path=%JAVA_HOME%\\bin;%PATH%
+
+							set ANT_HOME=F:\\ant\\apache-ant-1.7.1
+							set path=%ANT_HOME%\\bin;%PATH%
+
+							set MAVEN_HOME=F:\\Maven-Azure
+							set path=%MAVEN_HOME%\\bin;%PATH%
+							java -version && ant -version && mvn -version && git --version && cd build.jenkins && ant -f bamboo.xml all -Dbuilduser=%USERNAME% -Dbuildpassword=%PASSWORD% -Dproxy.user=%USERNAME% -Dproxy.password=%PASSWORD% -Dnonproxyhosts=artifactory.fis.dev -DtargetVersion=${releaseVersion} -Dbuild.home=${buildWorkspace}
+						
+							"""
+					}
+                  
+			      def props = readProperties  file: "build.jenkins/build.properties"
+                      
+                    env.targetVersion=props['targetVersion']
+                    def targetVersion="${targetVersion}.${env.BUILD_NUMBER}"
+               blackduckScan(
+                   artifactRepo: props['azureArtifactory.snapshot.repository'],
+                   projectName: props['maven.GroupId'],
+                   targetSourcePath: props['targetSourcePath'],
+                   targetSource: props['targetSource'],
+                   blackduckAppName: props['blackDuckAppName'],
+                   scanVersion: targetVersion,
+                   scanPhase: 'DEVELOPMENT'
+                   )
+				}
+				else {
+					bat """
+						echo "Select Release Checkbox option to execute Release build"
+						
+						"""				
+				}
+			}
+		
+		}
+		else {
+			
+			stage ("Build"){
+				
+				buildWorkspace="F:/jenkins_workspace/workspace/Teller_Teller-CI_feature_develop"
+				
+				withCredentials([usernamePassword(credentialsId: "cm-credentials-id", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+					bat """		
+												
+						set JAVA_HOME=F:\\Java\\jdk1.8.0_231-32bit
+						set path=%JAVA_HOME%\\bin;%PATH%
+
+						set ANT_HOME=F:\\ant\\apache-ant-1.7.1
+						set path=%ANT_HOME%\\bin;%PATH%
+
+						set MAVEN_HOME=F:\\Maven-Azure
+						set path=%MAVEN_HOME%\\bin;%PATH%
+						java -version && ant -version && mvn -version && git --version && cd build.jenkins && ant -f bamboo.xml all -Dbuilduser=%USERNAME% -Dbuildpassword=%PASSWORD% -Dproxy.user=%USERNAME% -Dproxy.password=%PASSWORD% -Dnonproxyhosts=artifactory.fis.dev -Dbuild.home=${buildWorkspace}
+					
+						"""
+				}
+			}
+		
+		}
+		
+    }
+}
+catch (e) {
+	currentBuild.result = "FAILED"
+	echo 'BUILD FAILED'
+	throw e
+} 
+finally {
+	buildNotification {
+		emailId = "Nagaraju.Vinnakota@fisglobal.com"
+	}
+}
+}
