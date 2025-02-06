@@ -1,0 +1,46 @@
+#!groovy
+@Library(['d1-shared-library@honeycomb']) _
+
+import com.fisglobal.honeycomb.interfaces.*
+import com.fisglobal.honeycomb.commands.*
+import com.fisglobal.honeycomb.utils.*
+import com.fisglobal.honeycomb.core.*
+
+pipeline {
+    agent {
+        kubernetes {
+          	cloud 'd1-oao-sita'
+            namespace 'd1-oao-sita'
+            label "ocp-deploy-connect-"+UUID.randomUUID()
+            yaml libraryResource('com/fisglobal/d1/jenkins/podTemplates/helm3.yaml')
+        }
+   }
+    stages {
+        stage('Job Description') {
+            steps {
+                container ('helm3'){
+                    println("Job Information")
+                    println("===============")
+                    println("BUILD USER: ${env.BUILD_USER}")
+                }
+            }
+        }
+        stage ('invoke-commands') {
+            steps {
+                container('helm3'){
+                    script {
+                        CommandInterface executorCmd = new ExecutorCommand()
+                        executorCmd.setSteps(this)
+                        executorCmd.setAdditionalParamsMap([env: ""])
+                        executorCmd.execute('./sit/config.yaml')
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+                cleanWs deleteDirs: true, notFailBuild: false
+        }
+    }
+}
