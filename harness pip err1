@@ -53,3 +53,38 @@ At C:\Users\SVCACT-P1CSVHARNS\harness-executable-39vcU-HATOOFUXDZ-cJPXA-AZVg1VMq
 
 
 
+
+
+
+
+
+
+
+
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$app0Dir = "C:\temp\app0"
+$artifactFilename = "<+artifact.metadata.fileName>"
+
+$artifactUrl = "https://artifactory.fis.dev/artifactory/pcsv-generic-snapshot-local/2025/202502/NA/EPC/<+artifact.metadata.fileName>"
+$destinationFile = "C:temp\$artifactFilename"
+
+if (!(Test-Path -Path $app0Dir)) {
+    # Create the folder
+    New-Item -Path $app0Dir -ItemType Directory
+    Write-Output "Folder 'app0' created in C:\temp."
+} else {
+    Write-Output "Folder 'app0' already exists in C:\temp."
+}
+
+
+Invoke-webRequest -Uri $artifactUrl -Headers @{'X-JFrog-Art-Api' = '******************'} -OutFile $destinationFile -Proxy "http://proxy.prod.local:8080" -UseBasicParsing
+
+Expand-Archive -Path $destinationFile -DestinationPath $app0Dir -Force
+
+cd $app0Dir
+
+dir
+
+
+
+
